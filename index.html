@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0f1115">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Draft Predictor">
+  <title>Dota 2 Draft Predictor</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icon-180.png">
+  <link rel="icon" href="icon-192.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>Draft Predictor</h1>
+      <button type="button" class="clear-btn" id="clear" disabled>Clear</button>
+    </header>
+
+    <section class="team" data-team="a">
+      <h2><span class="dot dot-a"></span>Team A &middot; Radiant</h2>
+      <div class="slots" id="slots-a"></div>
+    </section>
+
+    <section class="team" data-team="b">
+      <h2><span class="dot dot-b"></span>Team B &middot; Dire</h2>
+      <div class="slots" id="slots-b"></div>
+    </section>
+
+    <div id="output"></div>
+  </div>
+
+  <div class="mini-verdict" id="mini-verdict" aria-hidden="true"></div>
+
+  <div class="sheet" id="sheet" hidden>
+    <div class="sheet-head">
+      <input type="search" id="search" placeholder="Search heroes" autocomplete="off"
+             autocorrect="off" autocapitalize="off" spellcheck="false">
+      <button type="button" id="sheet-cancel">Cancel</button>
+    </div>
+    <div class="sheet-title" id="sheet-title">Pick a hero</div>
+    <div class="hero-list" id="hero-list"></div>
+  </div>
+
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+  <script src="sw-register.js"></script>
+</body>
+</html>
