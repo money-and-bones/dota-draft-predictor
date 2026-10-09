@@ -70,7 +70,19 @@ header h1 {
   letter-spacing: -0.01em;
 }
 
-.clear-btn {
+header .patch {
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--muted);
+  letter-spacing: 0;
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.head-btn {
   font-size: 0.85rem;
   color: var(--muted);
   padding: 8px 12px;
@@ -79,7 +91,8 @@ header h1 {
   min-height: 36px;
 }
 
-.clear-btn:disabled { opacity: 0.35; }
+.head-btn:disabled { opacity: 0.35; }
+.head-btn[aria-pressed="true"] { color: var(--text); background: var(--panel-2); border-color: var(--muted); }
 
 /* --- team cards --- */
 
@@ -377,6 +390,132 @@ td.flat { color: var(--muted); }
   line-height: 1.5;
   margin-top: 18px;
 }
+
+th.w-diff, td.w-diff { color: var(--muted); }
+td.w-diff.good { color: var(--good); }
+td.w-diff.bad { color: var(--bad); }
+
+/* --- best picks --- */
+
+.picks {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+
+.picks[hidden] { display: none; }
+
+.picks-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.picks-head h2 {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin: 0;
+}
+
+.count-toggle, .team-switch {
+  display: flex;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 2px;
+}
+
+.count-toggle button {
+  min-height: 32px;
+  min-width: 34px;
+  padding: 0 6px;
+  border-radius: 7px;
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.team-switch button {
+  flex: 1;
+  min-height: 38px;
+  border-radius: 7px;
+  font-size: 0.88rem;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.count-toggle button.active,
+.team-switch button.active { background: #2b3142; color: var(--text); }
+
+.picks-help {
+  color: var(--muted);
+  font-size: 0.75rem;
+  margin: 10px 0 4px;
+}
+
+.picks-note {
+  color: #c9a227;
+  font-size: 0.75rem;
+  margin: 8px 0 0;
+}
+
+.pick-row {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) 64px;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+
+.pick-row:last-child { border-bottom: none; }
+.pick-row:active:not(:disabled) { background: var(--panel-2); }
+.pick-row:disabled { cursor: default; }
+
+.pick-row .rank {
+  color: var(--muted);
+  font-size: 0.75rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.pick-row .name {
+  font-size: 0.88rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-bottom: 5px;
+}
+
+.pick-row .low-sample {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #c9a227;
+  margin-left: 6px;
+}
+
+.pick-row .score {
+  text-align: right;
+  font-weight: 600;
+  font-size: 0.92rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.pick-row .score.good { color: var(--good); }
+.pick-row .score.bad { color: var(--bad); }
+.pick-row .score.flat { color: var(--muted); }
 
 /* --- hero picker sheet --- */
 

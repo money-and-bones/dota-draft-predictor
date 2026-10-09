@@ -13,8 +13,11 @@
   var DATA = window.DOTA_DATA;
   var NAMES = DATA.heroes;
   var DIS = DATA.dis;
+  var WDIFF = DATA.wdiff;
   var TEAM_SIZE = 5;
   var STORAGE_KEY = "dota-draft-v1";
+  var PICKS_KEY = "dota-picks-v1";
+  var SUGGESTION_COUNTS = [10, 20, 30, 40, 50];  // same as app.py; first is the default
 
   // Matchups Dotabuff has too few games for, as a "i,j" lookup.
   var LOW = Object.create(null);
@@ -43,6 +46,9 @@
       return {
         opponent: opp,
         disadvantage: round(disadvantage(hero, opp), 4),
+        // Display-only cross-check, as in predictor.win_rate_diff(); never
+        // part of the total. null when the opponent has no saved page.
+        wDiff: WDIFF[hero][opp],
         lowConfidence: LOW[hero + "," + opp] === true
       };
     });
@@ -78,6 +84,28 @@
     };
   }
 
+  // Port of MatchupModel.suggest_picks(): a candidate's score is exactly how
+  // much adding it moves predict()'s total from `team`'s side, best first.
+  // Missing data counts as 0.0 and flags the candidate as low-sample.
+  function suggestPicks(team, enemy, n) {
+    var suggestions = [];
+    for (var c = 0; c < NAMES.length; c++) {
+      if (team.indexOf(c) !== -1 || enemy.indexOf(c) !== -1) continue;
+      var total = 0;
+      var lowSample = false;
+      for (var k = 0; k < enemy.length; k++) {
+        var e = enemy[k];
+        total += disadvantage(c, e) - disadvantage(e, c);
+        lowSample = lowSample || DIS[c][e] === null || DIS[e][c] === null ||
+          LOW[c + "," + e] === true || LOW[e + "," + c] === true;
+      }
+      suggestions.push({ hero: c, score: round(total / 2, 2), lowSample: lowSample });
+    }
+    // NAMES is alphabetical, so index order breaks ties by name like Python.
+    suggestions.sort(function (x, y) { return x.score - y.score || x.hero - y.hero; });
+    return suggestions.slice(0, n);
+  }
+
   // ------------------------------------------------------------- elements
 
   var slotContainers = { a: document.getElementById("slots-a"), b: document.getElementById("slots-b") };
@@ -88,6 +116,13 @@
   var sheetTitle = document.getElementById("sheet-title");
   var search = document.getElementById("search");
   var heroList = document.getElementById("hero-list");
+  var picksBtn = document.getElementById("picks-btn");
+  var picksPanel = document.getElementById("picks");
+  var picksList = document.getElementById("picks-list");
+  var countToggle = document.getElementById("count-toggle");
+  var teamSwitch = document.getElementById("team-switch");
+
+  document.getElementById("patch").textContent = DATA.patch ? "patch " + DATA.patch : "";
 
   function escapeHtml(text) {
     return String(text).replace(/[&<>"']/g, function (ch) {
@@ -240,14 +275,18 @@
     var rows = summaries.map(function (h) {
       return h.vs.map(function (v) {
         var cls = v.disadvantage > 0 ? "bad" : (v.disadvantage < 0 ? "good" : "flat");
+        var wCls = v.wDiff === null ? "" : (v.wDiff > 0 ? " bad" : " good");
         return "<tr><td>" + escapeHtml(NAMES[h.hero]) + "</td><td>" +
           escapeHtml(NAMES[v.opponent]) + (v.lowConfidence ? " *" : "") +
-          '</td><td class="' + cls + '">' + v.disadvantage.toFixed(2) + "</td></tr>";
+          '</td><td class="' + cls + '">' + v.disadvantage.toFixed(2) +
+          '</td><td class="w-diff' + wCls + '">' +
+          (v.wDiff === null ? "&mdash;" : v.wDiff.toFixed(2)) + "</td></tr>";
       }).join("");
     }).join("");
 
     return "<details><summary>" + label + " breakdown</summary><table><thead><tr><th>" +
-      label + "</th><th>vs " + otherLabel + "</th><th>Disadv.</th></tr></thead><tbody>" +
+      label + "</th><th>vs " + otherLabel + '</th><th>Disadv.</th><th class="w-diff">w_diff</th>' +
+      "</tr></thead><tbody>" +
       rows + "</tbody></table></details>";
   }
 
@@ -303,11 +342,84 @@
 
   window.addEventListener("scroll", updateMiniVerdict, { passive: true });
 
+  // ----------------------------------------------------------- best picks
+
+  // Panel state, kept across refreshes alongside the draft.
+  var picks = { open: false, team: "a", count: SUGGESTION_COUNTS[0] };
+
+  function renderPicks() {
+    picksBtn.setAttribute("aria-pressed", picks.open ? "true" : "false");
+    picksPanel.hidden = !picks.open;
+    if (!picks.open) return;
+
+    countToggle.innerHTML = SUGGESTION_COUNTS.map(function (n) {
+      var on = n === picks.count;
+      return '<button type="button" data-count="' + n + '"' + (on ? ' class="active"' : "") +
+        ' aria-pressed="' + on + '">' + n + "</button>";
+    }).join("");
+    Array.prototype.forEach.call(teamSwitch.children, function (b) {
+      b.classList.toggle("active", b.dataset.team === picks.team);
+    });
+
+    var team = picked(picks.team);
+    var enemy = picked(picks.team === "a" ? "b" : "a");
+    if (!enemy.length) {
+      picksList.innerHTML = '<div class="empty-msg">Add at least one enemy hero to get suggestions.</div>';
+      return;
+    }
+
+    var list = suggestPicks(team, enemy, picks.count);
+    var full = team.length >= TEAM_SIZE;
+    var maxAbs = Math.max.apply(null, list.map(function (p) { return Math.abs(p.score); }).concat([0])) || 1;
+
+    picksList.innerHTML =
+      (full ? '<p class="picks-note">Team is full &mdash; shown for comparison only.</p>' : "") +
+      list.map(function (p, i) {
+        var cls = p.score > 0 ? "bad" : (p.score < 0 ? "good" : "flat");
+        return '<button type="button" class="pick-row" data-hero="' + p.hero + '"' +
+          (full ? " disabled" : "") + '><span class="rank">' + (i + 1) +
+          '</span><div><div class="name">' + escapeHtml(NAMES[p.hero]) +
+          (p.lowSample ? '<span class="low-sample">low data</span>' : "") + "</div>" +
+          barHtml(p.score, maxAbs) + '</div><span class="score ' + cls + '">' +
+          (p.score > 0 ? "+" : "") + p.score.toFixed(2) + "</span></button>";
+      }).join("");
+  }
+
+  picksBtn.addEventListener("click", function () {
+    picks.open = !picks.open;
+    update();
+  });
+
+  countToggle.addEventListener("click", function (event) {
+    var b = event.target.closest("button");
+    if (!b) return;
+    picks.count = Number(b.dataset.count);
+    update();
+  });
+
+  teamSwitch.addEventListener("click", function (event) {
+    var b = event.target.closest("button");
+    if (!b) return;
+    picks.team = b.dataset.team;
+    update();
+  });
+
+  // Tapping a suggestion drops it into that team's first empty slot.
+  picksList.addEventListener("click", function (event) {
+    var row = event.target.closest(".pick-row");
+    if (!row || row.disabled) return;
+    var slot = teams[picks.team].indexOf(null);
+    if (slot === -1) return;
+    teams[picks.team][slot] = Number(row.dataset.hero);
+    update();
+  });
+
   // --------------------------------------------------------------- state
 
   function save() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(teams));
+      localStorage.setItem(PICKS_KEY, JSON.stringify(picks));
     } catch (err) {
       /* Private mode or blocked storage -- the draft just won't persist. */
     }
@@ -317,6 +429,12 @@
     var raw;
     try {
       raw = localStorage.getItem(STORAGE_KEY);
+      var savedPicks = JSON.parse(localStorage.getItem(PICKS_KEY) || "null");
+      if (savedPicks) {
+        picks.open = savedPicks.open === true;
+        if (savedPicks.team === "b") picks.team = "b";
+        if (SUGGESTION_COUNTS.indexOf(savedPicks.count) !== -1) picks.count = savedPicks.count;
+      }
     } catch (err) {
       return;
     }
@@ -364,6 +482,7 @@
     var b = picked("b");
     if (a.length && b.length) render(predict(a, b));
     else renderPrompt();
+    renderPicks();
     save();
   }
 
