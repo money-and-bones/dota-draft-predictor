@@ -612,3 +612,44 @@ td.w-diff.bad { color: var(--bad); }
   padding: 32px 16px;
   font-size: 0.9rem;
 }
+
+/* role filter + tags (best picks) */
+
+.role-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.role-filter button {
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--panel-2);
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.role-filter button.active {
+  background: rgba(124, 92, 255, 0.15);
+  border-color: #7c5cff;
+  color: #b7a6ff;
+}
+
+.pick-row .role-tags { margin: -2px 0 5px; line-height: 1; }
+
+.pick-row .role-tag {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 2px 5px;
+  font-size: 0.58rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+  background: var(--panel-2);
+  border-radius: 4px;
+}
+
+.pick-row .role-tag.match { color: #b7a6ff; background: rgba(124, 92, 255, 0.15); }

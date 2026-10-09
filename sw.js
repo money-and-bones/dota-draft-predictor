@@ -4,7 +4,7 @@
  * activate, which is what makes a redeploy actually reach installed users.
  */
 
-var CACHE = "dota-draft-v3";
+var CACHE = "dota-draft-v4";
 var ASSETS = [
   "./",
   "index.html",

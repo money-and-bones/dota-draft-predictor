@@ -18,6 +18,8 @@
   var STORAGE_KEY = "dota-draft-v1";
   var PICKS_KEY = "dota-picks-v1";
   var SUGGESTION_COUNTS = [10, 20, 30, 40, 50];  // same as app.py; first is the default
+  var ROLES = DATA.role_names || [];
+  var HERO_ROLES = DATA.roles || NAMES.map(function () { return []; });
 
   // Matchups Dotabuff has too few games for, as a "i,j" lookup.
   var LOW = Object.create(null);
@@ -87,10 +89,12 @@
   // Port of MatchupModel.suggest_picks(): a candidate's score is exactly how
   // much adding it moves predict()'s total from `team`'s side, best first.
   // Missing data counts as 0.0 and flags the candidate as low-sample.
-  function suggestPicks(team, enemy, n) {
+  // `roles` (empty = all) keeps heroes playing any of them, before the cut.
+  function suggestPicks(team, enemy, n, roles) {
     var suggestions = [];
     for (var c = 0; c < NAMES.length; c++) {
       if (team.indexOf(c) !== -1 || enemy.indexOf(c) !== -1) continue;
+      if (roles.length && !roles.some(function (r) { return HERO_ROLES[c].indexOf(r) !== -1; })) continue;
       var total = 0;
       var lowSample = false;
       for (var k = 0; k < enemy.length; k++) {
@@ -121,6 +125,7 @@
   var picksList = document.getElementById("picks-list");
   var countToggle = document.getElementById("count-toggle");
   var teamSwitch = document.getElementById("team-switch");
+  var roleFilter = document.getElementById("role-filter");
 
   document.getElementById("patch").textContent = DATA.patch ? "patch " + DATA.patch : "";
 
@@ -345,7 +350,10 @@
   // ----------------------------------------------------------- best picks
 
   // Panel state, kept across refreshes alongside the draft.
-  var picks = { open: false, team: "a", count: SUGGESTION_COUNTS[0] };
+  // roles: each team's role filter, empty = All.
+  var picks = { open: false, team: "a", count: SUGGESTION_COUNTS[0], roles: { a: [], b: [] } };
+
+  function capitalize(text) { return text.charAt(0).toUpperCase() + text.slice(1); }
 
   function renderPicks() {
     picksBtn.setAttribute("aria-pressed", picks.open ? "true" : "false");
@@ -360,6 +368,12 @@
     Array.prototype.forEach.call(teamSwitch.children, function (b) {
       b.classList.toggle("active", b.dataset.team === picks.team);
     });
+    var roles = picks.roles[picks.team];
+    roleFilter.innerHTML = [""].concat(ROLES).map(function (r) {
+      var on = r ? roles.indexOf(r) !== -1 : !roles.length;
+      return '<button type="button" data-role="' + r + '"' + (on ? ' class="active"' : "") +
+        ' aria-pressed="' + on + '">' + (r ? capitalize(r) : "All") + "</button>";
+    }).join("");
 
     var team = picked(picks.team);
     var enemy = picked(picks.team === "a" ? "b" : "a");
@@ -368,7 +382,11 @@
       return;
     }
 
-    var list = suggestPicks(team, enemy, picks.count);
+    var list = suggestPicks(team, enemy, picks.count, roles);
+    if (!list.length) {
+      picksList.innerHTML = '<div class="empty-msg">No undrafted heroes play ' + roles.join(" or ") + ".</div>";
+      return;
+    }
     var full = team.length >= TEAM_SIZE;
     var maxAbs = Math.max.apply(null, list.map(function (p) { return Math.abs(p.score); }).concat([0])) || 1;
 
@@ -380,6 +398,9 @@
           (full ? " disabled" : "") + '><span class="rank">' + (i + 1) +
           '</span><div><div class="name">' + escapeHtml(NAMES[p.hero]) +
           (p.lowSample ? '<span class="low-sample">low data</span>' : "") + "</div>" +
+          (HERO_ROLES[p.hero].length ? '<div class="role-tags">' + HERO_ROLES[p.hero].map(function (r) {
+            return '<span class="role-tag' + (roles.indexOf(r) !== -1 ? " match" : "") + '">' + r + "</span>";
+          }).join("") + "</div>" : "") +
           barHtml(p.score, maxAbs) + '</div><span class="score ' + cls + '">' +
           (p.score > 0 ? "+" : "") + p.score.toFixed(2) + "</span></button>";
       }).join("");
@@ -401,6 +422,18 @@
     var b = event.target.closest("button");
     if (!b) return;
     picks.team = b.dataset.team;
+    update();
+  });
+
+  roleFilter.addEventListener("click", function (event) {
+    var b = event.target.closest("button");
+    if (!b) return;
+    var role = b.dataset.role;
+    var current = picks.roles[picks.team];
+    var at = current.indexOf(role);
+    if (!role) picks.roles[picks.team] = [];
+    else if (at === -1) current.push(role);
+    else current.splice(at, 1);
     update();
   });
 
@@ -434,6 +467,12 @@
         picks.open = savedPicks.open === true;
         if (savedPicks.team === "b") picks.team = "b";
         if (SUGGESTION_COUNTS.indexOf(savedPicks.count) !== -1) picks.count = savedPicks.count;
+        ["a", "b"].forEach(function (t) {
+          var saved = savedPicks.roles && savedPicks.roles[t];
+          if (Array.isArray(saved)) {
+            picks.roles[t] = ROLES.filter(function (r) { return saved.indexOf(r) !== -1; });
+          }
+        });
       }
     } catch (err) {
       return;
